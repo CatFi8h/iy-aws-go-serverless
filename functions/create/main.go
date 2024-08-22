@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -57,16 +58,14 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		log.Fatalln(fmt.Printf("Could not Unmarshal JSON : [%s]", err1.Error()))
 	}
 
-	if detailsStucture.Mac == "" {
-		log.Println("Printing Details : ", responseStr)
-		log.Println("Printing Structure : ", detailsStucture)
+	if detailsStucture.Deviceid == "" {
 		log.Printf("Can not read JSON, %v", err)
 		return events.APIGatewayProxyResponse{StatusCode: 400}, nil
 	}
-
+	currentTime := time.Now().UnixMilli()
 	params, err := attributevalue.MarshalList([]interface{}{detailsStucture.Deviceid,
 		detailsStucture.DeviceName, detailsStucture.Mac, detailsStucture.Devicetype,
-		detailsStucture.HomeId, detailsStucture.CreatedAt, detailsStucture.ModifiedAt})
+		detailsStucture.HomeId, currentTime, currentTime})
 
 	if err != nil {
 		log.Fatalf("Can not get Attributes, %v", err)
