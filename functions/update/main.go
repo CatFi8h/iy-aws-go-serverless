@@ -30,8 +30,6 @@ type DeviceInfo struct {
 	Mac        string `dynamodbav:"mac" json:"mac"`
 	DeviceType string `dynamodbav:"type" json:"type"`
 	HomeId     string `dynamodbav:"homeId" json:"homeId"`
-	CreatedAt  int    `dynamodbav:"createdAt" json:"createdAt"`
-	ModifiedAt int    `dynamodbav:"modifiedAt" json:"modifiedAt"`
 }
 
 func (deviceInfo DeviceInfo) getKey() map[string]types.AttributeValue {
@@ -49,9 +47,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		return events.APIGatewayProxyResponse{StatusCode: 404}, errors.New("request body is empty")
 	}
 
-	var response *dynamodb.UpdateItemOutput
 	var deviceInfo DeviceInfo
-	var attributeMap map[string]map[string]interface{}
 
 	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
 
@@ -90,7 +86,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 			Body:       err.Error(),
 			StatusCode: 400}, nil
 	} else {
-		response, err = runner.DynamoDbClient.UpdateItem(context.TODO(), &dynamodb.UpdateItemInput{
+		_, err = runner.DynamoDbClient.UpdateItem(context.TODO(), &dynamodb.UpdateItemInput{
 			TableName:                 aws.String(runner.TableName),
 			Key:                       deviceInfo.getKey(),
 			ExpressionAttributeNames:  expr.Names(),
@@ -100,15 +96,13 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		})
 		if err != nil {
 			log.Printf("Couldn't update movie %v. Here's why: %v\n", deviceInfo.DeviceName, err)
-		} else {
-			err = attributevalue.UnmarshalMap(response.Attributes, &attributeMap)
-			if err != nil {
-				log.Printf("Couldn't unmarshall update response. Here's why: %v\n", err)
-			}
+			return events.APIGatewayProxyResponse{
+				Body:       err.Error(),
+				StatusCode: 400}, nil
 		}
 	}
 
-	log.Println("Entity Updated : %v", attributeMap)
+	log.Printf("Entity Updated")
 
 	a := events.APIGatewayProxyResponse{StatusCode: 200}
 	return a, err

@@ -26,10 +26,8 @@ type DeviceInfo struct {
 	Deviceid   string `json:"deviceid"`
 	DeviceName string `json:"deviceName"`
 	Mac        string `json:"mac"`
-	Devicetype string `json:"type"`
+	Devicetype string `json:"deviceType"`
 	HomeId     string `json:"homeId"`
-	CreatedAt  int    `json:"createdAt"`
-	ModifiedAt int    `json:"modifiedAt"`
 }
 
 func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
@@ -74,7 +72,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 
 	_, err = runner.DynamoDbClient.ExecuteStatement(context.TODO(), &dynamodb.ExecuteStatementInput{
 		Statement: aws.String(
-			fmt.Sprintf("INSERT INTO \"%v\" VALUE {'deviceId': ?, 'deviceName': ?, 'mac': ?, 'type': ?, 'homeId': ?, 'createdAt': ?, 'modifiedAt': ?}", runner.TableName)),
+			fmt.Sprintf("INSERT INTO \"%v\" VALUE {'deviceId': ?, 'deviceName': ?, 'mac': ?, 'deviceType': ?, 'homeId': ?, 'createdAt': ?, 'modifiedAt': ?}", runner.TableName)),
 		Parameters: params,
 	})
 	if err != nil {
