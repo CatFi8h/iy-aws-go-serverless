@@ -26,19 +26,20 @@ type DeviceInfo struct {
 	Deviceid   string `json:"deviceid"`
 	DeviceName string `json:"deviceName"`
 	Mac        string `json:"mac"`
-	Devicetype string `json:"deviceType"`
+	DeviceType string `json:"deviceType"`
 	HomeId     string `json:"homeId"`
 }
 
 func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 
 	if len(request.Body) < 1 {
-		return events.APIGatewayProxyResponse{StatusCode: 404}, errors.New("request body is empty")
+		return events.APIGatewayProxyResponse{StatusCode: 400}, errors.New("request body is empty")
 	}
 	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
 
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+		log.Printf("unable to load SDK config, %v", err)
+		return events.APIGatewayProxyResponse{StatusCode: 400}, errors.New("request body is empty")
 	}
 
 	runner := PartiQLRunner{
@@ -47,22 +48,22 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	}
 
 	var responseStr string = request.Body
-
 	var detailsStucture DeviceInfo
 
-	err1 := json.Unmarshal([]byte(responseStr), &detailsStucture)
+	err = json.Unmarshal([]byte(responseStr), &detailsStucture)
 
-	if err1 != nil {
-		log.Fatalln(fmt.Printf("Could not Unmarshal JSON : [%s]", err1.Error()))
+	if err != nil {
+		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
+		return events.APIGatewayProxyResponse{StatusCode: 400}, err
 	}
 
 	if detailsStucture.Deviceid == "" {
-		log.Printf("Can not read JSON, %v", err)
+		log.Printf("Can not read JSON")
 		return events.APIGatewayProxyResponse{StatusCode: 400}, nil
 	}
 	currentTime := time.Now().UnixMilli()
 	params, err := attributevalue.MarshalList([]interface{}{detailsStucture.Deviceid,
-		detailsStucture.DeviceName, detailsStucture.Mac, detailsStucture.Devicetype,
+		detailsStucture.DeviceName, detailsStucture.Mac, detailsStucture.DeviceType,
 		detailsStucture.HomeId, currentTime, currentTime})
 
 	if err != nil {

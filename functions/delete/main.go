@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"os"
 
@@ -21,13 +20,7 @@ type PartiQLRunner struct {
 }
 
 type DeviceInfo struct {
-	Deviceid   string `dynamodbav:"deviceid"`
-	DeviceName string `dynamodbav:"deviceName"`
-	Mac        string `dynamodbav:"mac"`
-	Devicetype string `dynamodbav:"deviceType"`
-	HomeId     string `dynamodbav:"homeId"`
-	CreatedAt  int    `dynamodbav:"createdAt"`
-	ModifiedAt int    `dynamodbav:"modifiedAt"`
+	Deviceid string `dynamodbav:"deviceid"`
 }
 
 func (deviceInfo DeviceInfo) getKey() map[string]types.AttributeValue {
@@ -63,7 +56,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		TableName:      os.Getenv("DEVICE_INFO_TABLE"),
 	}
 	log.Println("Getting Entity by DeviceId from DB")
-	result, err := runner.DynamoDbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+	_, err = runner.DynamoDbClient.DeleteItem(context.TODO(), &dynamodb.DeleteItemInput{
 		TableName: aws.String(runner.TableName),
 		Key:       deviceInfo.getKey(),
 	})
@@ -73,29 +66,9 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 			Body:       err.Error(),
 			StatusCode: 400}, nil
 	}
+	log.Println("Entity Removed. Starting parsing")
 
-	if result.Item == nil {
-		return events.APIGatewayProxyResponse{
-			Body:       "Result not found",
-			StatusCode: 404}, nil
-	}
-	log.Println("Entity Found. Starting parsing")
-	deviceInfo = DeviceInfo{}
-	err = attributevalue.UnmarshalMap(result.Item, &deviceInfo)
-	if err != nil {
-		return events.APIGatewayProxyResponse{
-			Body:       "Couldn't parse result JSON",
-			StatusCode: 400}, nil
-	}
-	log.Println("Parsing finished")
-	deviceInfoBytes, err := json.Marshal(deviceInfo)
-	if err != nil {
-		return events.APIGatewayProxyResponse{
-			Body:       "Couldn't parse result JSON",
-			StatusCode: 400}, nil
-	}
-
-	return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(deviceInfoBytes)}, nil
+	return events.APIGatewayProxyResponse{StatusCode: 200}, nil
 
 }
 
