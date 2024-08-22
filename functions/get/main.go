@@ -89,7 +89,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	log.Println("Parsing finished")
 
 	a := events.APIGatewayProxyResponse{StatusCode: 200}
-	a.Body = deviceInfo.Name
+	a.Body = deviceInfo.DeviceName
 	return a, nil
 
 }
