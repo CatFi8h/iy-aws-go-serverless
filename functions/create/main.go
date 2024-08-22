@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -22,7 +23,7 @@ type PartiQLRunner struct {
 
 type DeviceInfo struct {
 	Deviceid   string `json:"deviceid"`
-	Name       string `json:"name"`
+	DeviceName string `json:"deviceName"`
 	Mac        string `json:"mac"`
 	Devicetype string `json:"type"`
 	HomeId     string `json:"homeId"`
@@ -40,11 +41,10 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
-	tableName := "data-dev"
 
 	runner := PartiQLRunner{
 		DynamoDbClient: dynamodb.NewFromConfig(sdkConfig),
-		TableName:      tableName,
+		TableName:      os.Getenv("DEVICE_INFO_TABLE"),
 	}
 
 	var responseStr string = request.Body
@@ -65,7 +65,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	}
 
 	params, err := attributevalue.MarshalList([]interface{}{detailsStucture.Deviceid,
-		detailsStucture.Name, detailsStucture.Mac, detailsStucture.Devicetype,
+		detailsStucture.DeviceName, detailsStucture.Mac, detailsStucture.Devicetype,
 		detailsStucture.HomeId, detailsStucture.CreatedAt, detailsStucture.ModifiedAt})
 
 	if err != nil {
@@ -75,7 +75,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 
 	_, err = runner.DynamoDbClient.ExecuteStatement(context.TODO(), &dynamodb.ExecuteStatementInput{
 		Statement: aws.String(
-			fmt.Sprintf("INSERT INTO \"%v\" VALUE {'deviceId': ?, 'name': ?, 'mac': ?, 'type': ?, 'homeId': ?, 'createdAt': ?, 'modifiedAt': ?}", runner.TableName)),
+			fmt.Sprintf("INSERT INTO \"%v\" VALUE {'deviceId': ?, 'deviceName': ?, 'mac': ?, 'type': ?, 'homeId': ?, 'createdAt': ?, 'modifiedAt': ?}", runner.TableName)),
 		Parameters: params,
 	})
 	if err != nil {

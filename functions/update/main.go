@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -21,7 +24,7 @@ type PartiQLRunner struct {
 
 type DeviceInfo struct {
 	Deviceid   string `dynamodbav:"deviceid" json:"deviceid"`
-	Name       string `dynamodbav:"name" json:"name"`
+	DeviceName string `dynamodbav:"deviceName" json:"deviceName"`
 	Mac        string `dynamodbav:"mac" json:"mac"`
 	Devicetype string `dynamodbav:"type" json:"type"`
 	HomeId     string `dynamodbav:"homeId" json:"homeId"`
@@ -49,42 +52,40 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
-	tableName := "data-dev"
+
+	var deviceInfo DeviceInfo
+
+	err = json.Unmarshal([]byte(request.Body), &deviceInfo)
+
+	if err != nil {
+		log.Fatalln(fmt.Printf("Could not Unmarshal JSON : [%s]", err.Error()))
+	}
 
 	runner := PartiQLRunner{
 		DynamoDbClient: dynamodb.NewFromConfig(sdkConfig),
-		TableName:      tableName,
+		TableName:      os.Getenv("DEVICE_INFO_TABLE"),
 	}
-	log.Println("Getting Entity by DeviceId from DB")
-	result, err := runner.DynamoDbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
-		TableName: aws.String(runner.TableName),
-		Key:       deviceInfo.getKey(),
-	})
 
+	log.Println("Getting Entity by DeviceId from DB")
+	_, err = runner.DynamoDbClient.UpdateItem(context.TODO(), &dynamodb.UpdateItemInput{
+		TableName:        aws.String(runner.TableName),
+		Key:              deviceInfo.getKey(),
+		UpdateExpression: aws.String("SET deviceName = if_not_exists(deviceName, :deviceName)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":deviceName": &types.AttributeValueMemberS{Value: "I've been updated."},
+		},
+	})
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			Body:       err.Error(),
 			StatusCode: 400}, nil
 	}
 
-	if result.Item == nil {
-		return events.APIGatewayProxyResponse{
-			Body:       "Result not found",
-			StatusCode: 404}, nil
-	}
-	log.Println("Entity Found. Starting parsing")
-	deviceInfo = DeviceInfo{}
-	err = attributevalue.UnmarshalMap(result.Item, &deviceInfo)
-	if err != nil {
-		return events.APIGatewayProxyResponse{
-			Body:       "Couldn't parse result JSON",
-			StatusCode: 400}, nil
-	}
-	log.Println("Parsing finished")
+	log.Println("Entity Updated.")
 
 	a := events.APIGatewayProxyResponse{StatusCode: 200}
-	a.Body = deviceInfo.Name
-	return a, nil
+
+	return a, err
 
 }
 

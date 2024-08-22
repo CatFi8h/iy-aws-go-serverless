@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -20,7 +21,7 @@ type PartiQLRunner struct {
 
 type DeviceInfo struct {
 	Deviceid   string `dynamodbav:"deviceid"`
-	Name       string `dynamodbav:"name"`
+	DeviceName string `dynamodbav:"deviceName"`
 	Mac        string `dynamodbav:"mac"`
 	Devicetype string `dynamodbav:"type"`
 	HomeId     string `dynamodbav:"homeId"`
@@ -55,11 +56,10 @@ func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
-	tableName := "data-dev"
 
 	runner := PartiQLRunner{
 		DynamoDbClient: dynamodb.NewFromConfig(sdkConfig),
-		TableName:      tableName,
+		TableName:      os.Getenv("DEVICE_INFO_TABLE"),
 	}
 	log.Println("Getting Entity by DeviceId from DB")
 	result, err := runner.DynamoDbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
