@@ -28,7 +28,7 @@ type DeviceInfo struct {
 	Deviceid   string `dynamodbav:"deviceid" json:"deviceid"`
 	DeviceName string `dynamodbav:"deviceName" json:"deviceName"`
 	Mac        string `dynamodbav:"mac" json:"mac"`
-	DeviceType string `dynamodbav:"type" json:"type"`
+	DeviceType string `dynamodbav:"deviceType" json:"deviceType"`
 	HomeId     string `dynamodbav:"homeId" json:"homeId"`
 }
 
