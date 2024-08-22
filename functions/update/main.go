@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -39,16 +40,9 @@ func (deviceInfo DeviceInfo) getKey() map[string]types.AttributeValue {
 
 func handler(request events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 
-	log.Println(request.QueryStringParameters)
-	an := request.QueryStringParameters
-	deviceId := an["id"]
-	log.Println("QueryParam : ", deviceId)
-	if deviceId == "" {
-		return events.APIGatewayProxyResponse{
-			Body:       "ID is empty",
-			StatusCode: 401}, nil
+	if len(request.Body) < 1 {
+		return events.APIGatewayProxyResponse{StatusCode: 404}, errors.New("request body is empty")
 	}
-	deviceInfo := DeviceInfo{Deviceid: deviceId}
 
 	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
 
