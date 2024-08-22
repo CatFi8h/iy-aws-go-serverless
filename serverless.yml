@@ -32,9 +32,9 @@ provider:
             - dynamodb:ListTables
             - dynamodb:PartiQLInsert
           Resource:
-            - Fn::GetAtt: [UsersTable, Arn]
+            - Fn::GetAtt: [DeviceInfoTable, Arn]
   environment:
-    USERS_TABLE: ${param:tableName}
+    DEVICE_INFO_TABLE: ${param:tableName}
 
 package:
   individually: true 
@@ -61,7 +61,7 @@ functions:
 
 resources:
   Resources:
-    UsersTable:
+    DeviceInfoTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
