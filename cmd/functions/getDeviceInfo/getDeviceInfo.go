@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/repository"
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/service"
@@ -20,7 +19,6 @@ var deviceInfoService = service.NewDeviceInfoService(respository)
 
 func handler(ctx context.Context, request Request) (Response, error) {
 
-	log.Println(request.PathParameters["deviceId"])
 	deviceId := request.PathParameters["deviceId"]
 	if deviceId == "" {
 		return transport.SendValidationError(400, "ID is empty")
