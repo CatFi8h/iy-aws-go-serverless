@@ -84,6 +84,7 @@ resources:
     DeviceInfoTable:
       Type: AWS::DynamoDB::Table
       Properties:
+        BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: deviceId
             AttributeType: S

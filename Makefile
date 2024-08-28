@@ -16,3 +16,9 @@ clear:
 
 deploy:
 	serverless deploy --verbose
+
+testdynamodb:
+	docker run -p 8000:8000 amazon/dynamodb-local
+
+createTable:
+	aws dynamodb create-table --table-name device-info-dev --attribute-definitions AttributeName=deviceId,AttributeType=S --key-schema AttributeName=deviceId,KeyType=HASH --billing-mode PAY_PER_REQUEST --endpoint-url http://localhost:8000
