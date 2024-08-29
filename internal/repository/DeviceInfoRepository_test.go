@@ -1,20 +1,24 @@
 package repository
 
 import (
-	"fmt"
-	"strconv"
-	"testing"
+	"context"
+	"log"
+	"os"
 	"time"
 
+	"testing"
+
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/awsdocs/aws-doc-sdk-examples/gov2/dynamodb/actions"
-	"github.com/awsdocs/aws-doc-sdk-examples/gov2/dynamodb/stubs"
-	"github.com/awsdocs/aws-doc-sdk-examples/gov2/testtools"
+
+	containers "github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-var testDeviceInfo1 = []model.DeviceInfo{
+var testDeviceInfo = []model.DeviceInfo{
 	{
 		DeviceId:   "21e4e1bc-b2f8-4a47-b092-3e0c452462e0",
 		DeviceName: "My Device 1",
@@ -32,135 +36,198 @@ var testDeviceInfo1 = []model.DeviceInfo{
 		HomeId:     "1",
 		CreateAt:   time.Now().Unix(),
 		UpdatedAt:  time.Now().Unix(),
-	}, {
-		DeviceId:   "21e4e1bc-b2f8-4a47-b092-3e0c452462e2",
-		DeviceName: "My Device 3",
-		Mac:        "mac-mac-mac-mac3",
-		DeviceType: "Phone",
-		HomeId:     "2",
-		CreateAt:   time.Now().Unix(),
-		UpdatedAt:  time.Now().Unix(),
 	},
 }
 
-type MockSampler struct {
-}
-
-func (sampler MockSampler) GetURL() string { return "http://example.com" }
-func (sampler MockSampler) GetSampleMovies() []actions.Movie {
-	var movies []actions.Movie
-	for index := 1; index <= 5; index++ {
-		movies = append(movies, actions.Movie{
-			Title: fmt.Sprintf("Test movie %v", index),
-			Year:  2000 + index,
-			Info: map[string]interface{}{
-				"rating": 1.4 + float64(index),
-				"plot":   fmt.Sprintf("Test plot %v", index),
-			},
-		})
+// Create the test container and wait for it to be ready
+func setupContainer(t *testing.T) (string, func(t *testing.T)) {
+	ctx := context.Background()
+	req := containers.ContainerRequest{
+		Image:        "amazon/dynamodb-local:latest",
+		ExposedPorts: []string{"8000/tcp"},
+		WaitingFor:   wait.ForExposedPort(),
 	}
-	return movies
-}
-
-// TestRunMovieScenario runs the scenario multiple times. The first time, it runs with no
-// errors. In subsequent runs, it specifies that each stub in the sequence should
-// raise an error and verifies the results.
-func TestRunMovieScenario(t *testing.T) {
-	// scenTest := MovieScenarioTest{}
-	// testtools.RunScenarioTests(&scenTest, t)
-}
-
-// MovieScenarioTest encapsulates data for a scenario test.
-type MovieScenarioTest struct {
-	TableName string
-	Answers   []string
-	Sampler   MockSampler
-}
-
-// SetupDataAndStubs sets up test data and builds the stubs that are used to return
-// mocked data.
-func (scenTest *MovieScenarioTest) SetupDataAndStubs() []testtools.Stub {
-	scenTest.TableName = "doc-example-test-movie-table"
-	title := "Test movie"
-	year := 2002
-	addRating := 3.5
-	addRatingS := "3.5"
-	addPlot := "Add test plot."
-	addMovie := actions.Movie{
-		Title: title,
-		Year:  year,
-		Info:  map[string]interface{}{"rating": addRating, "plot": addPlot},
+	container, err := containers.GenericContainer(ctx, containers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("Could not start DynamoDB: %s", err)
 	}
-	addMovieItem, marshErr := attributevalue.MarshalMap(addMovie)
-	if marshErr != nil {
-		panic(marshErr)
-	}
-	updateRating := 6.6
-	updateRatingS := "6.6"
-	updatePlot := "Update test plot."
-	updateMovie := actions.Movie{
-		Title: title,
-		Year:  year,
-		Info:  map[string]interface{}{"rating": updateRating, "plot": updatePlot},
-	}
-	getIndex := 2
-	queryYear := "1985"
-	scanStart := "2001"
-	scanEnd := "2010"
-	tableNames := []string{"Table 1", "Table 2", "Table 3"}
-	scenTest.Answers = []string{
-		addMovie.Title,
-		strconv.Itoa(addMovie.Year),
-		addRatingS,
-		addPlot,
-		updateRatingS,
-		updatePlot,
-		strconv.Itoa(getIndex + 1),
-		queryYear,
-		scanStart,
-		scanEnd,
-		"y",
-		"y",
-		"y",
+	endpoint, err := container.Endpoint(ctx, "")
+	if err != nil {
+		t.Fatalf("Could not get DynamoDB endpoint: %s", err)
 	}
 
-	scenTest.Sampler = MockSampler{}
-	sampleMovies := scenTest.Sampler.GetSampleMovies()
-	var writeReqs []types.WriteRequest
-	for _, movie := range sampleMovies {
-		item, marshErr := attributevalue.MarshalMap(movie)
-		if marshErr != nil {
-			panic(marshErr)
+	return endpoint, func(t *testing.T) {
+		if err := container.Terminate(ctx); err != nil {
+			t.Fatalf("Could not stop DynamoDB: %s", err)
 		}
-		writeReqs = append(
-			writeReqs,
-			types.WriteRequest{PutRequest: &types.PutRequest{Item: item}})
 	}
-
-	var stubList []testtools.Stub
-	stubList = append(stubList, stubs.StubDescribeTable(
-		scenTest.TableName, &testtools.StubError{Err: &types.ResourceNotFoundException{}, ContinueAfter: true}))
-	stubList = append(stubList, stubs.StubCreateTable(scenTest.TableName, nil))
-	stubList = append(stubList, stubs.StubDescribeTable(scenTest.TableName, nil))
-	stubList = append(stubList, stubs.StubAddMovie(scenTest.TableName, addMovieItem, nil))
-	stubList = append(stubList, stubs.StubUpdateMovie(scenTest.TableName, updateMovie.GetKey(), updateRatingS, updatePlot, nil))
-	stubList = append(stubList, stubs.StubAddMovieBatch(scenTest.TableName, writeReqs, nil))
-	stubList = append(stubList, stubs.StubGetMovie(
-		scenTest.TableName, sampleMovies[getIndex].GetKey(), sampleMovies[getIndex].Title, strconv.Itoa(sampleMovies[getIndex].Year),
-		strconv.FormatFloat(sampleMovies[getIndex].Info["rating"].(float64), 'f', 1, 64),
-		sampleMovies[getIndex].Info["plot"].(string), nil))
-	stubList = append(stubList, stubs.StubQuery(scenTest.TableName, title, queryYear, nil))
-	stubList = append(stubList, stubs.StubScan(scenTest.TableName, title, scanStart, scanEnd, nil))
-	stubList = append(stubList, stubs.StubListTables(tableNames, nil))
-	stubList = append(stubList, stubs.StubDeleteItem(scenTest.TableName, addMovie.GetKey(), nil))
-	stubList = append(stubList, stubs.StubDeleteTable(scenTest.TableName, nil))
-
-	return stubList
 }
 
-// RunSubTest performs a single test run with a set of stubs set up to run with
-// or without errors.
-func (scenTest *MovieScenarioTest) RunSubTest(stubber *testtools.AwsmStubber) {
-	// mockQuestioner = testtools.MockQuestioner{Answers: scenTest.Answers}
-	// RunMovieScenario(*stubber.SdkConfig, &mockQuestioner, scenTest.TableName, scenTest.Sampler)
+func TestConnectToLocalDBContainer(t *testing.T) {
+	ep, tearDown := setupContainer(t)
+	defer tearDown(t)
+
+	connect(ep, t)
+	log.Println("Connection check Test finished")
+}
+
+func TestSaveDeviceInfo(t *testing.T) {
+	e, tearDown := setupContainer(t)
+	defer tearDown(t)
+
+	dynamodbClient = *connect(e, t)
+
+	if err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0]); err != nil {
+		t.Errorf("Expected to be able to save item, but received error: %s", err)
+	}
+}
+
+func TestGetDeviceInfo(t *testing.T) {
+	e, tearDown := setupContainer(t)
+	defer tearDown(t)
+
+	dynamodbClient = *connect(e, t)
+
+	if err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0]); err != nil {
+		t.Errorf("Expected to be able to save item, but received error: %s", err)
+	}
+
+	result, err := GetDeviceInfo(context.TODO(), testDeviceInfo[0])
+	if err != nil {
+		t.Errorf("Expected to be able to get item, but received error: %s", err)
+	}
+	validateDeviceIdWithDataById(result, 0, t)
+	validateResultWithDataById(result, 0, t)
+
+}
+
+func validateDeviceIdWithDataById(result *model.DeviceInfo, deviceVersionId int, t *testing.T) {
+	if result == nil {
+		t.Errorf("Expected entry is not nil")
+	}
+	if result.DeviceId != testDeviceInfo[deviceVersionId].DeviceId {
+		t.Errorf("Expected entry Device ID to be '%s' but received: %s", testDeviceInfo[deviceVersionId].DeviceId, result.DeviceId)
+	}
+}
+
+func validateResultWithDataById(result *model.DeviceInfo, deviceVersionId int, t *testing.T) {
+
+	if result.DeviceName != testDeviceInfo[deviceVersionId].DeviceName {
+		t.Errorf("Expected entry Device Name to be '%s' but received: %s", testDeviceInfo[deviceVersionId].DeviceName, result.DeviceName)
+	}
+	if result.DeviceType != testDeviceInfo[deviceVersionId].DeviceType {
+		t.Errorf("Expected entry Device Type to be '%s' but received: %s", testDeviceInfo[deviceVersionId].DeviceType, result.DeviceType)
+	}
+	if result.HomeId != testDeviceInfo[deviceVersionId].HomeId {
+		t.Errorf("Expected entry Device Home ID to be '%s' but received: %s", testDeviceInfo[deviceVersionId].HomeId, result.HomeId)
+	}
+	if result.Mac != testDeviceInfo[deviceVersionId].Mac {
+		t.Errorf("Expected entry Device MAC to be '%s' but received: %s", testDeviceInfo[deviceVersionId].Mac, result.Mac)
+	}
+}
+
+func TestUpdateDeviceInfo(t *testing.T) {
+	e, tearDown := setupContainer(t)
+	defer tearDown(t)
+
+	dynamodbClient = *connect(e, t)
+
+	if err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0]); err != nil {
+		t.Errorf("Expected to be able to save item, but received error: %s", err)
+	}
+
+	result, err := GetDeviceInfo(context.TODO(), testDeviceInfo[0])
+	if err != nil {
+		t.Errorf("Expected to be able to get item, but received error: %s", err)
+	}
+	validateDeviceIdWithDataById(result, 0, t)
+	validateResultWithDataById(result, 0, t)
+	deviceInfo := testDeviceInfo[1]
+	deviceInfo.DeviceId = testDeviceInfo[0].DeviceId
+	UpdateDeviceInfo(context.TODO(), deviceInfo)
+
+	result, err = GetDeviceInfo(context.TODO(), testDeviceInfo[0])
+	if err != nil {
+		t.Errorf("Expected to be able to get item, but received error: %s", err)
+	}
+	validateDeviceIdWithDataById(result, 0, t)
+	validateResultWithDataById(result, 1, t)
+}
+
+func TestDeleteDeviceInfo(t *testing.T) {
+	e, tearDown := setupContainer(t)
+	defer tearDown(t)
+
+	dynamodbClient = *connect(e, t)
+
+	if err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0]); err != nil {
+		t.Errorf("Expected to be able to save item, but received error: %s", err)
+	}
+
+	result, err := GetDeviceInfo(context.TODO(), testDeviceInfo[0])
+	validateDeviceIdWithDataById(result, 0, t)
+	validateResultWithDataById(result, 0, t)
+	err = DeleteDeviceInfoByDeviceId(context.TODO(), testDeviceInfo[0])
+	if err != nil {
+		t.Errorf("Expected to be able to get item, but received error: %s", err)
+	}
+	result, err = GetDeviceInfo(context.TODO(), testDeviceInfo[0])
+	if err != nil {
+		t.Errorf("Expected to be able to get item, but received error: %s", err)
+	}
+	if result != nil {
+		t.Errorf("Expected entry is not nil")
+	}
+}
+
+func connect(e string, t *testing.T) *dynamodb.Client {
+	t.Setenv("DEVICE_INFO_TABLE", "device-info-table")
+	client := createClient("http://" + e)
+	if err := createTable(client); err != nil {
+		t.Errorf("Expected to be able to create Dy	namoDB table, but received: %s", err)
+	}
+
+	return client
+}
+
+func createClient(endpoint string) *dynamodb.Client {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	// , func(o *config.LoadOptions) error {
+	// 	o.Region = "eu-east-1"
+	// 	return nil
+	// })
+	if err != nil {
+		panic(err)
+	}
+	if endpoint == "" {
+		endpoint = "https://localhost"
+	}
+
+	return dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
+		o.BaseEndpoint = &endpoint
+	})
+}
+
+func createTable(c *dynamodb.Client) error {
+	_, err := c.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
+		TableName:   aws.String(os.Getenv("DEVICE_INFO_TABLE")), //tableName
+		BillingMode: types.BillingModePayPerRequest,
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("deviceid"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("deviceid"),
+				KeyType:       types.KeyTypeHash,
+			},
+		},
+	})
+
+	return err
 }
