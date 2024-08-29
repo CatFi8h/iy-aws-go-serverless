@@ -7,27 +7,26 @@ import (
 	"log"
 	"time"
 
-	"github.com/CatFi8h/iy-aws-go-serverless/internal/interfaces"
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/repository"
 )
 
 type DeviceInfoService struct {
-	repository interfaces.IDeviceInfoRepository
+	devInfoRepo repository.DeviceInfoRepository
 }
 
-func NewDeviceInfoService(repo interfaces.IDeviceInfoRepository) DeviceInfoService {
-	return DeviceInfoService{repository: repo}
+func NewDeviceInfoService(repo *repository.DeviceInfoRepository) *DeviceInfoService {
+	return &DeviceInfoService{devInfoRepo: *repo}
 }
 
-func (service DeviceInfoService) GetDeviceInfo(ctx context.Context, deviceId string) (string, error) {
+func (service *DeviceInfoService) GetDeviceInfo(ctx context.Context, deviceId string) (string, error) {
 
 	if deviceId == "" {
 		log.Fatal("Device ID is empty")
 	}
-	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
+	deviceInfo := &model.DeviceInfo{DeviceId: deviceId}
 	//database get data by ID
-	deviceInfo, err := service.repository.GetDeviceInfo(ctx, deviceInfo)
+	deviceInfo, err := service.devInfoRepo.GetDeviceInfo(ctx, *deviceInfo)
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +55,7 @@ func (service DeviceInfoService) CreateDeviceInfo(ctx context.Context, responseS
 
 	detailsStucture.CreateAt = currentTime
 	detailsStucture.UpdatedAt = currentTime
-	err = service.repository.CreateDeviceInfo(ctx, detailsStucture)
+	err = repository.CreateDeviceInfo(ctx, detailsStucture)
 	if err != nil {
 		return err
 	}

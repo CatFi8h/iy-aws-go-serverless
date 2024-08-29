@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"log"
 	"os"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/stretchr/testify/assert"
 
 	containers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -71,7 +71,6 @@ func TestConnectToLocalDBContainer(t *testing.T) {
 	defer tearDown(t)
 
 	connect(ep, t)
-	log.Println("Connection check Test finished")
 }
 
 func TestSaveDeviceInfo(t *testing.T) {
@@ -80,9 +79,8 @@ func TestSaveDeviceInfo(t *testing.T) {
 
 	dynamodbClient = *connect(e, t)
 
-	if err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0]); err != nil {
-		t.Errorf("Expected to be able to save item, but received error: %s", err)
-	}
+	err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0])
+	assert.Error(t, err, "Expected to be able to save item, but received error")
 }
 
 func TestGetDeviceInfo(t *testing.T) {
@@ -91,42 +89,25 @@ func TestGetDeviceInfo(t *testing.T) {
 
 	dynamodbClient = *connect(e, t)
 
-	if err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0]); err != nil {
-		t.Errorf("Expected to be able to save item, but received error: %s", err)
-	}
+	err := CreateDeviceInfo(context.TODO(), testDeviceInfo[0])
+	assert.NoError(t, err, "Expected to be able to save item, but received error")
 
 	result, err := GetDeviceInfo(context.TODO(), testDeviceInfo[0])
-	if err != nil {
-		t.Errorf("Expected to be able to get item, but received error: %s", err)
-	}
+	assert.NoError(t, err, "Expected to be able to save item, but received error")
 	validateDeviceIdWithDataById(result, 0, t)
 	validateResultWithDataById(result, 0, t)
-
 }
 
 func validateDeviceIdWithDataById(result *model.DeviceInfo, deviceVersionId int, t *testing.T) {
-	if result == nil {
-		t.Errorf("Expected entry is not nil")
-	}
-	if result.DeviceId != testDeviceInfo[deviceVersionId].DeviceId {
-		t.Errorf("Expected entry Device ID to be '%s' but received: %s", testDeviceInfo[deviceVersionId].DeviceId, result.DeviceId)
-	}
+	assert.NotNil(t, result, "Expected entry is not nil")
+	assert.Equal(t, result.DeviceId, testDeviceInfo[deviceVersionId].DeviceId)
 }
 
 func validateResultWithDataById(result *model.DeviceInfo, deviceVersionId int, t *testing.T) {
-
-	if result.DeviceName != testDeviceInfo[deviceVersionId].DeviceName {
-		t.Errorf("Expected entry Device Name to be '%s' but received: %s", testDeviceInfo[deviceVersionId].DeviceName, result.DeviceName)
-	}
-	if result.DeviceType != testDeviceInfo[deviceVersionId].DeviceType {
-		t.Errorf("Expected entry Device Type to be '%s' but received: %s", testDeviceInfo[deviceVersionId].DeviceType, result.DeviceType)
-	}
-	if result.HomeId != testDeviceInfo[deviceVersionId].HomeId {
-		t.Errorf("Expected entry Device Home ID to be '%s' but received: %s", testDeviceInfo[deviceVersionId].HomeId, result.HomeId)
-	}
-	if result.Mac != testDeviceInfo[deviceVersionId].Mac {
-		t.Errorf("Expected entry Device MAC to be '%s' but received: %s", testDeviceInfo[deviceVersionId].Mac, result.Mac)
-	}
+	assert.Equal(t, result.DeviceName, testDeviceInfo[deviceVersionId].DeviceName)
+	assert.Equal(t, result.DeviceType, testDeviceInfo[deviceVersionId].DeviceType)
+	assert.Equal(t, result.HomeId, testDeviceInfo[deviceVersionId].HomeId)
+	assert.Equal(t, result.Mac, testDeviceInfo[deviceVersionId].Mac)
 }
 
 func TestUpdateDeviceInfo(t *testing.T) {
@@ -171,9 +152,7 @@ func TestDeleteDeviceInfo(t *testing.T) {
 	validateDeviceIdWithDataById(result, 0, t)
 	validateResultWithDataById(result, 0, t)
 	err = DeleteDeviceInfoByDeviceId(context.TODO(), testDeviceInfo[0])
-	if err != nil {
-		t.Errorf("Expected to be able to get item, but received error: %s", err)
-	}
+	assert.NoError(t, err)
 	result, err = GetDeviceInfo(context.TODO(), testDeviceInfo[0])
 	if err != nil {
 		t.Errorf("Expected to be able to get item, but received error: %s", err)

@@ -14,8 +14,8 @@ import (
 type Request = events.APIGatewayProxyRequest
 type Response = events.APIGatewayProxyResponse
 
-var respository = repository.NewDeviceInfoRepository()
-var deviceInfoService = service.NewDeviceInfoService(respository)
+var respository = *repository.NewDeviceInfoRepository()
+var deviceInfoService = service.NewDeviceInfoService(&respository)
 
 func handler(ctx context.Context, request Request) (Response, error) {
 
