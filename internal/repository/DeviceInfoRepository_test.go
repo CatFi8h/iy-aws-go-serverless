@@ -1,121 +1,166 @@
 package repository
 
 import (
-	"context"
 	"fmt"
-	"os"
-
+	"strconv"
 	"testing"
+	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
+	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/awsdocs/aws-doc-sdk-examples/gov2/dynamodb/actions"
+	"github.com/awsdocs/aws-doc-sdk-examples/gov2/dynamodb/stubs"
+	"github.com/awsdocs/aws-doc-sdk-examples/gov2/testtools"
 )
 
-// the TestMain functions runs before any test we execute
-func TestMain(m *testing.M) {
-	// get a context for our request
-	ctx := context.Background()
-	// create a container request for DynamoDB
-	req := testcontainers.ContainerRequest{
-		// we're using the latest version of the image provided by Amazon
-		Image: "amazon/dynamodb-local:latest",
-		// be sure to use the commands as described in the documentation, but
-		// an in-memory version is good enough for us
-		Cmd: []string{"-jar", "DynamoDBLocal.jar", "-inMemory"},
-		// by default, DynamoDB runs on port 8000
-		ExposedPorts: []string{"8000/tcp"},
-		// testcontainers let's us block until the port is available, i.e.,
-		// DynamoDB has started
-		WaitingFor: wait.NewHostPortStrategy("8000"),
-	}
-
-	// let's start the container!
-	d, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	// be sure to stop the container before we're done!
-	defer d.Terminate(ctx)
-
-	// now all we need is the IP and port of our DynamoDB instance to connect
-	// to the right endpoints
-	ip, err := d.Host(ctx)
-
-	if err != nil {
-		panic(err)
-	}
-
-	port, err := d.MappedPort(ctx, "8000")
-
-	if err != nil {
-		panic(err)
-	}
-
-	// create a new session with our custom endpoint
-	// we need to specify a region, otherwise we get a fatal error
-	sess := session.Must(session.NewSession(&aws.Config{
-		Endpoint: aws.String(fmt.Sprintf("http://%s:%s", ip, port)),
-		Region:   aws.String("eu-central-1"),
-	}))
-
-	// and now we have our service!
-	dynamodb.New(sess)
-
-	// now we just need to tell go-test that we can run the tests
-	os.Exit(m.Run())
+var testDeviceInfo1 = []model.DeviceInfo{
+	{
+		DeviceId:   "21e4e1bc-b2f8-4a47-b092-3e0c452462e0",
+		DeviceName: "My Device 1",
+		Mac:        "mac-mac-mac-mac1",
+		DeviceType: "Phone",
+		HomeId:     "1",
+		CreateAt:   time.Now().Unix(),
+		UpdatedAt:  time.Now().Unix(),
+	},
+	{
+		DeviceId:   "21e4e1bc-b2f8-4a47-b092-3e0c452462e1",
+		DeviceName: "My Device 2",
+		Mac:        "mac-mac-mac-mac2",
+		DeviceType: "Phone",
+		HomeId:     "1",
+		CreateAt:   time.Now().Unix(),
+		UpdatedAt:  time.Now().Unix(),
+	}, {
+		DeviceId:   "21e4e1bc-b2f8-4a47-b092-3e0c452462e2",
+		DeviceName: "My Device 3",
+		Mac:        "mac-mac-mac-mac3",
+		DeviceType: "Phone",
+		HomeId:     "2",
+		CreateAt:   time.Now().Unix(),
+		UpdatedAt:  time.Now().Unix(),
+	},
 }
 
-func TestGreetKeys(t *testing.T) {
-	// in this test, we first create a new table with a key, then see if the
-	// greeting works
+type MockSampler struct {
+}
 
-	table := "greetingtable"
-
-	_, err := svc.CreateTable(&dynamodb.CreateTableInput{
-		AttributeDefinitions: []*dynamodb.AttributeDefinition{
-			{
-				// by the way: note how aws uses custom strings?!
-				AttributeName: aws.String("theresa"),
-				AttributeType: aws.String("S"),
+func (sampler MockSampler) GetURL() string { return "http://example.com" }
+func (sampler MockSampler) GetSampleMovies() []actions.Movie {
+	var movies []actions.Movie
+	for index := 1; index <= 5; index++ {
+		movies = append(movies, actions.Movie{
+			Title: fmt.Sprintf("Test movie %v", index),
+			Year:  2000 + index,
+			Info: map[string]interface{}{
+				"rating": 1.4 + float64(index),
+				"plot":   fmt.Sprintf("Test plot %v", index),
 			},
-		},
-		BillingMode:            nil,
-		GlobalSecondaryIndexes: nil,
-		KeySchema: []*dynamodb.KeySchemaElement{
-			{
-				AttributeName: aws.String("theresa"),
-				KeyType:       aws.String(dynamodb.KeyTypeHash),
-			},
-		},
-		LocalSecondaryIndexes: nil,
-		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-			ReadCapacityUnits:  aws.Int64(1),
-			WriteCapacityUnits: aws.Int64(1),
-		},
-		SSESpecification:    nil,
-		StreamSpecification: nil,
-		TableName:           aws.String(table),
-		Tags:                nil,
-	})
+		})
+	}
+	return movies
+}
 
-	if err != nil {
-		t.Fatalf("could not create table: %s", err.Error())
+// TestRunMovieScenario runs the scenario multiple times. The first time, it runs with no
+// errors. In subsequent runs, it specifies that each stub in the sequence should
+// raise an error and verifies the results.
+func TestRunMovieScenario(t *testing.T) {
+	// scenTest := MovieScenarioTest{}
+	// testtools.RunScenarioTests(&scenTest, t)
+}
+
+// MovieScenarioTest encapsulates data for a scenario test.
+type MovieScenarioTest struct {
+	TableName string
+	Answers   []string
+	Sampler   MockSampler
+}
+
+// SetupDataAndStubs sets up test data and builds the stubs that are used to return
+// mocked data.
+func (scenTest *MovieScenarioTest) SetupDataAndStubs() []testtools.Stub {
+	scenTest.TableName = "doc-example-test-movie-table"
+	title := "Test movie"
+	year := 2002
+	addRating := 3.5
+	addRatingS := "3.5"
+	addPlot := "Add test plot."
+	addMovie := actions.Movie{
+		Title: title,
+		Year:  year,
+		Info:  map[string]interface{}{"rating": addRating, "plot": addPlot},
+	}
+	addMovieItem, marshErr := attributevalue.MarshalMap(addMovie)
+	if marshErr != nil {
+		panic(marshErr)
+	}
+	updateRating := 6.6
+	updateRatingS := "6.6"
+	updatePlot := "Update test plot."
+	updateMovie := actions.Movie{
+		Title: title,
+		Year:  year,
+		Info:  map[string]interface{}{"rating": updateRating, "plot": updatePlot},
+	}
+	getIndex := 2
+	queryYear := "1985"
+	scanStart := "2001"
+	scanEnd := "2010"
+	tableNames := []string{"Table 1", "Table 2", "Table 3"}
+	scenTest.Answers = []string{
+		addMovie.Title,
+		strconv.Itoa(addMovie.Year),
+		addRatingS,
+		addPlot,
+		updateRatingS,
+		updatePlot,
+		strconv.Itoa(getIndex + 1),
+		queryYear,
+		scanStart,
+		scanEnd,
+		"y",
+		"y",
+		"y",
 	}
 
-	out, err := GreetKeys(table, svc)
-
-	if err != nil {
-		t.Fatalf("could not greet table: %s", err.Error())
+	scenTest.Sampler = MockSampler{}
+	sampleMovies := scenTest.Sampler.GetSampleMovies()
+	var writeReqs []types.WriteRequest
+	for _, movie := range sampleMovies {
+		item, marshErr := attributevalue.MarshalMap(movie)
+		if marshErr != nil {
+			panic(marshErr)
+		}
+		writeReqs = append(
+			writeReqs,
+			types.WriteRequest{PutRequest: &types.PutRequest{Item: item}})
 	}
 
-	if out != "Hello theresa!" {
-		t.Fatalf("output \"%s\" is wrong!", out)
-	}
+	var stubList []testtools.Stub
+	stubList = append(stubList, stubs.StubDescribeTable(
+		scenTest.TableName, &testtools.StubError{Err: &types.ResourceNotFoundException{}, ContinueAfter: true}))
+	stubList = append(stubList, stubs.StubCreateTable(scenTest.TableName, nil))
+	stubList = append(stubList, stubs.StubDescribeTable(scenTest.TableName, nil))
+	stubList = append(stubList, stubs.StubAddMovie(scenTest.TableName, addMovieItem, nil))
+	stubList = append(stubList, stubs.StubUpdateMovie(scenTest.TableName, updateMovie.GetKey(), updateRatingS, updatePlot, nil))
+	stubList = append(stubList, stubs.StubAddMovieBatch(scenTest.TableName, writeReqs, nil))
+	stubList = append(stubList, stubs.StubGetMovie(
+		scenTest.TableName, sampleMovies[getIndex].GetKey(), sampleMovies[getIndex].Title, strconv.Itoa(sampleMovies[getIndex].Year),
+		strconv.FormatFloat(sampleMovies[getIndex].Info["rating"].(float64), 'f', 1, 64),
+		sampleMovies[getIndex].Info["plot"].(string), nil))
+	stubList = append(stubList, stubs.StubQuery(scenTest.TableName, title, queryYear, nil))
+	stubList = append(stubList, stubs.StubScan(scenTest.TableName, title, scanStart, scanEnd, nil))
+	stubList = append(stubList, stubs.StubListTables(tableNames, nil))
+	stubList = append(stubList, stubs.StubDeleteItem(scenTest.TableName, addMovie.GetKey(), nil))
+	stubList = append(stubList, stubs.StubDeleteTable(scenTest.TableName, nil))
+
+	return stubList
+}
+
+// RunSubTest performs a single test run with a set of stubs set up to run with
+// or without errors.
+func (scenTest *MovieScenarioTest) RunSubTest(stubber *testtools.AwsmStubber) {
+	// mockQuestioner = testtools.MockQuestioner{Answers: scenTest.Answers}
+	// RunMovieScenario(*stubber.SdkConfig, &mockQuestioner, scenTest.TableName, scenTest.Sampler)
 }

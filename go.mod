@@ -9,6 +9,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.14.12
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.7.34
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.34.6
+	github.com/awsdocs/aws-doc-sdk-examples/gov2/dynamodb v0.0.0-20240828181228-420df9a2b817
+	github.com/awsdocs/aws-doc-sdk-examples/gov2/testtools v0.0.0-20240828181228-420df9a2b817
 	github.com/testcontainers/testcontainers-go v0.33.0
 )
 

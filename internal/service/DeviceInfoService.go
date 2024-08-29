@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/interfaces"
-	"github.com/CatFi8h/iy-aws-go-serverless/internal/models"
+	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/repository"
 )
 
@@ -25,7 +25,7 @@ func (service DeviceInfoService) GetDeviceInfo(ctx context.Context, deviceId str
 	if deviceId == "" {
 		log.Fatal("Device ID is empty")
 	}
-	deviceInfo := models.DeviceInfo{Deviceid: deviceId}
+	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 	//database get data by ID
 	deviceInfo, err := service.repository.GetDeviceInfo(ctx, deviceInfo)
 	if err != nil {
@@ -35,13 +35,13 @@ func (service DeviceInfoService) GetDeviceInfo(ctx context.Context, deviceId str
 	if err != nil {
 		return "", err
 	}
-	// deviceInfoResp := models.DeviceInfoResponse{Data: string(res)}
+
 	return string(resultByteArr), err
 }
 
 func (service DeviceInfoService) CreateDeviceInfo(ctx context.Context, responseStr string) error {
 
-	var detailsStucture models.DeviceInfo
+	var detailsStucture model.DeviceInfo
 	currentTime := time.Now().UnixMilli()
 
 	err := json.Unmarshal([]byte(responseStr), &detailsStucture)
@@ -49,7 +49,7 @@ func (service DeviceInfoService) CreateDeviceInfo(ctx context.Context, responseS
 		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
 		return err
 	}
-	if detailsStucture.Deviceid == "" {
+	if detailsStucture.DeviceId == "" {
 		log.Printf("Can not read JSON")
 		return errors.New("can not read JSON")
 	}
@@ -66,7 +66,7 @@ func (service DeviceInfoService) CreateDeviceInfo(ctx context.Context, responseS
 
 func (service DeviceInfoService) UpdateDeviceInfo(ctx context.Context, deviceId string, requestBody string) error {
 
-	deviceInfo := models.DeviceInfo{Deviceid: deviceId}
+	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 
 	err := json.Unmarshal([]byte(requestBody), &deviceInfo)
 
@@ -88,7 +88,7 @@ func (service DeviceInfoService) UpdateDeviceInfo(ctx context.Context, deviceId 
 }
 
 func (service DeviceInfoService) DeleteDeviceInfo(ctx context.Context, deviceId string) error {
-	deviceInfo := models.DeviceInfo{Deviceid: deviceId}
+	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 
 	err := repository.DeleteDeviceInfoByDeviceId(ctx, deviceInfo)
 

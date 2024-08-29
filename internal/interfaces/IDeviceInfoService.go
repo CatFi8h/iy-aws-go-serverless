@@ -3,13 +3,13 @@ package interfaces
 import (
 	"context"
 
-	"github.com/CatFi8h/iy-aws-go-serverless/internal/models"
+	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
 )
 
 type IDeviceInfoService interface {
 	CreateDeviceInfo(bodyStr string) error
 
-	GetDeviceInfo(ctx context.Context, deviceId string) (models.DeviceInfoResponse, error)
+	GetDeviceInfo(ctx context.Context, deviceId string) (model.DeviceInfoResponse, error)
 
 	DeleteDeviceInfo(deviceId string) error
 

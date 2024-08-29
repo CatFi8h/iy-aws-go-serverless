@@ -3,15 +3,15 @@ package interfaces
 import (
 	"context"
 
-	"github.com/CatFi8h/iy-aws-go-serverless/internal/models"
+	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
 )
 
 type IDeviceInfoRepository interface {
-	CreateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error
+	CreateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error
 
-	GetDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) (models.DeviceInfo, error)
+	GetDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (model.DeviceInfo, error)
 
-	UpdateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error
+	UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error
 
-	DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo models.DeviceInfo) error
+	DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo model.DeviceInfo) error
 }

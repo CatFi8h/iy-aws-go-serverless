@@ -22,3 +22,5 @@ testdynamodb:
 
 createTable:
 	aws dynamodb create-table --table-name device-info-dev --attribute-definitions AttributeName=deviceId,AttributeType=S --key-schema AttributeName=deviceId,KeyType=HASH --billing-mode PAY_PER_REQUEST --endpoint-url http://localhost:8000
+	aws dynamodb create-table --attribute-definitions AttributeName=deviceid,AttributeType=S --table-name device-info-table --key-schema AttributeName=deviceid,KeyType=HASH --provisioned-throughput ReadCapacityUnits=2,WriteCapacityUnits=2 --endpoint-url http://localhost:32813
+

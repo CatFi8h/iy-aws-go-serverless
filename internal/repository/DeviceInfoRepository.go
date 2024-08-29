@@ -4,11 +4,9 @@ import (
 	"context"
 	"log"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/CatFi8h/iy-aws-go-serverless/internal/interfaces"
-	"github.com/CatFi8h/iy-aws-go-serverless/internal/models"
+	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -18,27 +16,27 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-var awsConfig aws.Config
-var onceAwsConfig sync.Once
-var dynamodbClient *dynamodb.Client
-var onceDdbClient sync.Once
-var tableName string = os.Getenv("DEVICE_INFO_TABLE")
+// var awsConfig aws.Config
+// var onceAwsConfig sync.Once
+var dynamodbClient dynamodb.Client
+
+// var onceDdbClient sync.Once
+// var tableName string = os.Getenv("DEVICE_INFO_TABLE")
 
 type DeviceInfoRepository struct {
-	interfaces.IDeviceInfoRepository
 }
 
-func NewDeviceInfoRepository() interfaces.IDeviceInfoRepository {
-	return DeviceInfoRepository{}
+func NewDeviceInfoRepository() *DeviceInfoRepository {
+	return &DeviceInfoRepository{}
 }
 
-func CreateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error {
+func CreateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error {
 	item, err := attributevalue.MarshalMap(deviceInfo)
 	if err != nil {
 		return err
 	}
 	_, err = dynamodbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
+		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
 		Item:      item,
 	})
 	if err != nil {
@@ -47,7 +45,7 @@ func CreateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error {
 	return nil
 }
 
-func UpdateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error {
+func UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error {
 
 	update := expression.Set(expression.Name("modifiedAt"), expression.Value(time.Now().UnixMilli()))
 	if deviceInfo.DeviceName != "" {
@@ -68,8 +66,8 @@ func UpdateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error {
 		log.Printf("Couldn't build expression for update. Here's why: %v\n", err)
 		return err
 	}
-	result, err := getDynamoDbClient().UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(tableName),
+	result, err := dynamodbClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(os.Getenv("DEVICE_INFO_TABLE")),
 		Key:                       deviceInfo.GetKey(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -80,15 +78,15 @@ func UpdateDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) error {
 		return err
 	}
 	if len(result.Attributes) < 1 {
-		log.Printf("Device Info with ID: %v Not found", deviceInfo.Deviceid)
+		log.Printf("Device Info with ID: %v Not found", deviceInfo.DeviceId)
 	}
 	return nil
 }
 
-func GetDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) (*models.DeviceInfo, error) {
+func GetDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
 
 	result, err := dynamodbClient.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(tableName),
+		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
 		Key:       deviceInfo.GetKey(),
 	})
 	if err != nil {
@@ -105,17 +103,14 @@ func GetDeviceInfo(ctx context.Context, deviceInfo models.DeviceInfo) (*models.D
 	return &deviceInfo, nil
 }
 
-func DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo models.DeviceInfo) error {
+func DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo model.DeviceInfo) error {
 
-	result, err := dynamodbClient.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(tableName),
+	_, err := dynamodbClient.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
 		Key:       deviceInfo.GetKey(),
 	})
 	if err != nil {
 		return err
-	}
-	if len(result.Attributes) < 1 {
-		log.Printf("Device Info ID %v - Not found", deviceInfo.Deviceid)
 	}
 
 	return nil
@@ -123,25 +118,10 @@ func DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo models.DeviceInf
 }
 
 func init() {
-	getDynamoDbClient()
-}
+	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
 
-func getAwsConfig() aws.Config {
-	onceAwsConfig.Do(func() {
-		var err error
-		awsConfig, err = config.LoadDefaultConfig(context.TODO())
-		if err != nil {
-			panic(err)
-		}
-	})
-	return awsConfig
-}
-
-func getDynamoDbClient() *dynamodb.Client {
-	onceDdbClient.Do(func() {
-		awsConfig = getAwsConfig()
-		// region := config.Region
-		dynamodbClient = dynamodb.NewFromConfig(awsConfig)
-	})
-	return dynamodbClient
+	dynamodbClient = *dynamodb.NewFromConfig(sdkConfig)
 }
