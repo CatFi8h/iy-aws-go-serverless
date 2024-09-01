@@ -1,0 +1,48 @@
+// package repository
+
+// import (
+// 	"context"
+// 	"testing"
+
+// 	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
+// 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+// 	"github.com/stretchr/testify/assert"
+// 	"github.com/stretchr/testify/mock"
+// )
+
+// type MockDynamoDbClient struct {
+// 	mock.Mock
+// }
+
+// func (mock *MockDynamoDbClient) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+// 	args := mock.Called()
+// 	result := args.Get(0)
+// 	return result.(*dynamodb.PutItemOutput), args.Error(1)
+// }
+// func (mock *MockDynamoDbClient) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+// 	args := mock.Called()
+// 	result := args.Get(0)
+// 	return result.(*dynamodb.UpdateItemOutput), args.Error(1)
+// }
+// func (mock *MockDynamoDbClient) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+// 	args := mock.Called()
+// 	result := args.Get(0)
+// 	return result.(*dynamodb.GetItemOutput), args.Error(1)
+// }
+
+// func (mock *MockDynamoDbClient) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+// 	args := mock.Called()
+// 	result := args.Get(0)
+// 	return result.(*dynamodb.DeleteItemOutput), args.Error(1)
+// }
+
+// func TestPutItem_valid(t *testing.T) {
+// 	t.Setenv("DEVICE_INFO_TABLE", "device-info-table")
+// 	mockClient := new(MockDynamoDbClient)
+// 	repository := NewDeviceInfoRepository()
+// 	mockClient.On("PutItem").Return(nil)
+// 	resp, err := repository.CreateDeviceInfo(context.TODO(), model.DeviceInfo{})
+// 	assert.NoError(t, err)
+// 	assert.Nil(t, resp)
+
+// }
