@@ -16,36 +16,41 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// var awsConfig aws.Config
-// var onceAwsConfig sync.Once
-var dynamodbClient dynamodb.Client
+type deviceInfoRepository struct{}
 
-// var onceDdbClient sync.Once
-// var tableName string = os.Getenv("DEVICE_INFO_TABLE")
+var (
+	dynamodbClient dynamodb.Client
+)
 
-type DeviceInfoRepository struct {
+func NewDeviceInfoRepository() IDeviceInfoRepository {
+	return &deviceInfoRepository{}
 }
 
-func NewDeviceInfoRepository() *DeviceInfoRepository {
-	return &DeviceInfoRepository{}
-}
+// func NewDeviceInfoRepository(client dynamodb.Client) IDeviceInfoRepository {
+// 	dynamodbClient = client
+// 	return &deviceInfoRepository{}
+// }
 
-func CreateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error {
+func (*deviceInfoRepository) CreateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
 	item, err := attributevalue.MarshalMap(deviceInfo)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = dynamodbClient.PutItem(ctx, &dynamodb.PutItemInput{
+	newItem, err := dynamodbClient.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
 		Item:      item,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	err = attributevalue.UnmarshalMap(newItem.Attributes, &deviceInfo)
+	if err != nil {
+		return nil, err
+	}
+	return &deviceInfo, nil
 }
 
-func UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error {
+func (*deviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
 
 	update := expression.Set(expression.Name("modifiedAt"), expression.Value(time.Now().UnixMilli()))
 	if deviceInfo.DeviceName != "" {
@@ -64,7 +69,7 @@ func UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error {
 
 	if err != nil {
 		log.Printf("Couldn't build expression for update. Here's why: %v\n", err)
-		return err
+		return nil, err
 	}
 	result, err := dynamodbClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(os.Getenv("DEVICE_INFO_TABLE")),
@@ -75,15 +80,19 @@ func UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) error {
 		ReturnValues:              types.ReturnValueUpdatedNew,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(result.Attributes) < 1 {
 		log.Printf("Device Info with ID: %v Not found", deviceInfo.DeviceId)
 	}
-	return nil
+	err = attributevalue.UnmarshalMap(result.Attributes, &deviceInfo)
+	if err != nil {
+		return nil, err
+	}
+	return &deviceInfo, nil
 }
 
-func GetDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
+func (*deviceInfoRepository) GetDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 
 	result, err := dynamodbClient.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
@@ -96,14 +105,14 @@ func GetDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.Dev
 		return nil, nil
 	}
 
-	attributevalue.UnmarshalMap(result.Item, &deviceInfo)
+	err = attributevalue.UnmarshalMap(result.Item, &deviceInfo)
 	if err != nil {
 		return nil, err
 	}
-	return &deviceInfo, nil
+	return deviceInfo, nil
 }
 
-func DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo model.DeviceInfo) error {
+func (*deviceInfoRepository) DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo model.DeviceInfo) error {
 
 	_, err := dynamodbClient.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),

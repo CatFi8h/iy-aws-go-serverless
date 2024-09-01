@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/repository"
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/service"
@@ -24,15 +25,21 @@ func handler(ctx context.Context, request Request) (Response, error) {
 		return transport.SendValidationError(400, "ID is empty")
 	}
 
-	deviceInfo, error := deviceInfoService.GetDeviceInfo(ctx, deviceId)
+	deviceInfo, err := deviceInfoService.GetDeviceInfo(ctx, deviceId)
 
-	if error != nil {
+	if err != nil {
 		return transport.SendError(400, error.Error())
-	} else if deviceInfo == "" {
+	}
+	if deviceInfo == nil {
 		return transport.SendError(404, "Device Info not found")
 	}
+	resultByteArr, err := json.Marshal(deviceInfo)
+	if err != nil {
+		return transport.SendError(400, error.Error())
+	}
+	resultStr := string(resultByteArr)
 
-	return transport.Send(200, deviceInfo)
+	return transport.Send(200, resultStr)
 
 }
 

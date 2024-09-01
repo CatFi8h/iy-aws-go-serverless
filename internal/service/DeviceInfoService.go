@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 	"time"
@@ -11,85 +10,73 @@ import (
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/repository"
 )
 
-type DeviceInfoService struct {
-	devInfoRepo repository.DeviceInfoRepository
+type deviceInfoService struct{}
+
+var (
+	repo repository.IDeviceInfoRepository
+)
+
+func NewDeviceInfoService(repository repository.IDeviceInfoRepository) IDeviceInfoService {
+	repo = repository
+	return &deviceInfoService{}
 }
 
-func NewDeviceInfoService(repo *repository.DeviceInfoRepository) *DeviceInfoService {
-	return &DeviceInfoService{devInfoRepo: *repo}
-}
+func (service *deviceInfoService) CreateDeviceInfo(ctx context.Context, deviceInfoReq model.DeviceInfo) (*model.DeviceInfo, error) {
 
-func (service *DeviceInfoService) GetDeviceInfo(ctx context.Context, deviceId string) (string, error) {
-
-	if deviceId == "" {
-		log.Fatal("Device ID is empty")
-	}
-	deviceInfo := &model.DeviceInfo{DeviceId: deviceId}
-	//database get data by ID
-	deviceInfo, err := service.devInfoRepo.GetDeviceInfo(ctx, *deviceInfo)
-	if err != nil {
-		return "", err
-	}
-	resultByteArr, err := json.Marshal(deviceInfo)
-	if err != nil {
-		return "", err
-	}
-
-	return string(resultByteArr), err
-}
-
-func (service DeviceInfoService) CreateDeviceInfo(ctx context.Context, responseStr string) error {
-
-	var detailsStucture model.DeviceInfo
 	currentTime := time.Now().UnixMilli()
 
-	err := json.Unmarshal([]byte(responseStr), &detailsStucture)
-	if err != nil {
-		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
-		return err
-	}
-	if detailsStucture.DeviceId == "" {
+	if deviceInfoReq.DeviceId == "" {
 		log.Printf("Can not read JSON")
-		return errors.New("can not read JSON")
+		return nil, errors.New("can not read JSON")
 	}
 
-	detailsStucture.CreateAt = currentTime
-	detailsStucture.UpdatedAt = currentTime
-	err = repository.CreateDeviceInfo(ctx, detailsStucture)
+	deviceInfoReq.CreateAt = currentTime
+	deviceInfoReq.UpdatedAt = currentTime
+
+	resp, err := repo.CreateDeviceInfo(ctx, deviceInfoReq)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return resp, nil
 
 }
 
-func (service DeviceInfoService) UpdateDeviceInfo(ctx context.Context, deviceId string, requestBody string) error {
+func (service *deviceInfoService) GetDeviceInfo(ctx context.Context, deviceId string) (*model.DeviceInfo, error) {
 
+	if deviceId == "" {
+		return nil, errors.New("device ID is empty")
+	}
 	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 
-	err := json.Unmarshal([]byte(requestBody), &deviceInfo)
-
-	deviceInfo.UpdatedAt = time.Now().UnixMilli()
-
+	deviceInfoResp, err := repo.GetDeviceInfo(ctx, &deviceInfo)
 	if err != nil {
-		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
-		return err
+		return nil, err
 	}
-
-	err = repository.UpdateDeviceInfo(ctx, deviceInfo)
-
-	if err != nil {
-		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
-		return err
+	if deviceInfoResp == nil {
+		return nil, nil
 	}
-
-	return nil
+	return deviceInfoResp, nil
 }
 
-func (service DeviceInfoService) DeleteDeviceInfo(ctx context.Context, deviceId string) error {
+func (service *deviceInfoService) UpdateDeviceInfo(ctx context.Context, deviceId string, deviceInfoReq model.DeviceInfo) (*model.DeviceInfo, error) {
+
+	deviceInfoReq.DeviceId = deviceId
+	deviceInfoReq.UpdatedAt = time.Now().UnixMilli()
+
+	resp, err := repo.UpdateDeviceInfo(ctx, deviceInfoReq)
+
+	if err != nil {
+		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (service *deviceInfoService) DeleteDeviceInfo(ctx context.Context, deviceId string) error {
 	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 
-	err := repository.DeleteDeviceInfoByDeviceId(ctx, deviceInfo)
+	err := repo.DeleteDeviceInfoByDeviceId(ctx, deviceInfo)
 
 	if err != nil {
 		log.Printf("Could not delete Device Info : [%s]", err.Error())
