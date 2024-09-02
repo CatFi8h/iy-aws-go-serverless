@@ -1,3 +1,5 @@
+.PHONY: clear build zip deploy
+
 build:
 	echo "Building lambda binaries"
 	env GOOS=linux GOARCH=arm64 go build -o build/lambda/create/bootstrap cmd/functions/createDeviceInfo/main.go
