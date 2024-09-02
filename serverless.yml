@@ -56,7 +56,7 @@ functions:
       artifact: build/lambda/get.zip # override the default artifact handling to use the built zip
     events:
       - httpApi:
-          path: /device-info
+          path: /device-info/{deviceId}
           method: get
 
   delete:
@@ -66,7 +66,7 @@ functions:
       artifact: build/lambda/delete.zip # override the default artifact handling to use the built zip
     events:
       - httpApi:
-          path: /device-info
+          path: /device-info/{deviceId}
           method: delete
 
   update:
@@ -76,22 +76,40 @@ functions:
       artifact: build/lambda/update.zip # override the default artifact handling to use the built zip
     events:
       - httpApi:
-          path: /device-info
+          path: /device-info/{deviceId}
           method: put
+  compute:
+    handler: bootstrap
+    package:
+      artifact: build/lambda/listensns.zip
+    events:
+      - sqs: 
+          arn:
+            Fn::GetAtt:
+              - SQSQueue
+              - Arn
+          batchSize: 1
+          maximumBatchingWindow: 30
 
 resources:
   Resources:
+    SQSQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}
+        VisibilityTimeout: 30
+       
     DeviceInfoTable:
       Type: AWS::DynamoDB::Table
       Properties:
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: deviceId
+          - AttributeName: deviceid
             AttributeType: S
         KeySchema:
-          - AttributeName: deviceId
+          - AttributeName: deviceid
             KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        # ProvisionedThroughput:
+        #   ReadCapacityUnits: 1
+        #   WriteCapacityUnits: 1
         TableName: ${param:tableName}

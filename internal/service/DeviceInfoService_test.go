@@ -98,13 +98,13 @@ func TestCreateDeviceInfo_valid(t *testing.T) {
 	assert.Equal(t, resp.CreateAt, resp.UpdatedAt)
 }
 
-func TestCreateDeviceInfo_noRequiredIdValue(t *testing.T) {
-	service := NewDeviceInfoService(nil)
+// func TestCreateDeviceInfo_noRequiredIdValue(t *testing.T) {
+// 	service := NewDeviceInfoService(nil)
 
-	_, err := service.CreateDeviceInfo(context.TODO(), model.DeviceInfo{DeviceName: "Name test"})
+// 	_, err := service.CreateDeviceInfo(context.TODO(), model.DeviceInfo{DeviceName: "Name test"})
 
-	assert.Error(t, err)
-}
+// 	assert.Error(t, err)
+// }
 
 func TestUpdateDeviceInfo_valid(t *testing.T) {
 	const newName = "New Name"

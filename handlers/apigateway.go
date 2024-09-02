@@ -127,3 +127,33 @@ func (h *ApiGatewayHandler) DeleteHandler(ctx context.Context, request Request) 
 	return transport.Send(http.StatusOK, resp.DeviceId)
 
 }
+
+func (h *ApiGatewayHandler) SQSHandler(ctx context.Context, event events.SQSEvent) error {
+	for _, record := range event.Records {
+		res, err := processMessage(record)
+		if err != nil {
+			log.Panicf("Could Not Process message")
+			return err
+		}
+		deviceInfo := model.DeviceInfo{HomeId: res.HomeId}
+		resDevInfo, err := h.service.UpdateDeviceInfo(ctx, res.DeviceId, deviceInfo)
+		if err != nil {
+			log.Println("Could Not Process message")
+			return err
+		}
+		if resDevInfo != nil {
+			fmt.Println("Update done. Successfully")
+		}
+	}
+	return nil
+}
+
+func processMessage(record events.SQSMessage) (*model.DeviceInfoSQSMessage, error) {
+	var deviceInfoMessage model.DeviceInfoSQSMessage
+	fmt.Printf("Processed message %s\n", record.Body)
+	err := json.Unmarshal([]byte(record.Body), &deviceInfoMessage)
+	if err != nil {
+		log.Panicf("Could Not Parse message JSON")
+	}
+	return &deviceInfoMessage, nil
+}

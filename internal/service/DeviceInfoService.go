@@ -26,7 +26,7 @@ func (service *deviceInfoService) CreateDeviceInfo(ctx context.Context, deviceIn
 
 	deviceInfoReq.CreateAt = currentTime
 	deviceInfoReq.UpdatedAt = currentTime
-
+	log.Printf(deviceInfoReq.DeviceId + " " + deviceInfoReq.DeviceName)
 	resp, err := service.repo.CreateDeviceInfo(ctx, &deviceInfoReq)
 	if err != nil {
 		return nil, err

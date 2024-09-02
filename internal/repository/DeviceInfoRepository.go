@@ -38,7 +38,7 @@ func NewDeviceInfoRepository(ctx context.Context, tableName string) IDeviceInfoR
 }
 
 func (d *DeviceInfoRepository) CreateDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
-	item, err := attributevalue.MarshalMap(deviceInfo)
+	item, err := attributevalue.MarshalMap(&deviceInfo)
 	if err != nil {
 		return nil, err
 	}

@@ -145,3 +145,24 @@ func TestApiDeleteDeviceInfo_valid(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
+
+func TestSqsUpdateDeviceInfo_valid(t *testing.T) {
+	devMessage := model.DeviceInfoSQSMessage{
+		DeviceId: "1",
+		HomeId:   "My New Home ID",
+	}
+	jsonStr, err := json.Marshal(devMessage)
+	assert.NoError(t, err)
+	mockService := new(MockDeviceInfoService)
+	mockService.On("UpdateDeviceInfo").Return(&deviceInfo, nil)
+	apiGateway := NewApiGatewayHandler(mockService)
+	err = apiGateway.SQSHandler(context.TODO(), events.SQSEvent{
+		Records: []events.SQSMessage{
+			{
+				MessageId: "id1",
+				Body:      string(jsonStr),
+			},
+		},
+	})
+	assert.NoError(t, err)
+}

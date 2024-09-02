@@ -21,5 +21,6 @@ func main() {
 
 	handler := handlers.NewApiGatewayHandler(service)
 
-	lambda.Start(handler.CreateHandler)
+	lambda.Start(handler.SQSHandler)
+
 }
