@@ -2,8 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"log"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/model"
@@ -16,41 +17,52 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-type deviceInfoRepository struct{}
-
-var (
-	dynamodbClient dynamodb.Client
-)
-
-func NewDeviceInfoRepository() IDeviceInfoRepository {
-	return &deviceInfoRepository{}
+type DeviceInfoRepository struct {
+	dbClient  *dynamodb.Client
+	tableName string
 }
 
-// func NewDeviceInfoRepository(client dynamodb.Client) IDeviceInfoRepository {
-// 	dynamodbClient = client
-// 	return &deviceInfoRepository{}
-// }
+func NewDeviceInfoRepository(ctx context.Context, tableName string) IDeviceInfoRepository {
 
-func (*deviceInfoRepository) CreateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
+	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatalf("unable to load SDK config %s", err)
+	}
+
+	dynamodbClient := dynamodb.NewFromConfig(sdkConfig)
+
+	return &DeviceInfoRepository{
+		dbClient:  dynamodbClient,
+		tableName: tableName,
+	}
+}
+
+func (d *DeviceInfoRepository) CreateDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 	item, err := attributevalue.MarshalMap(deviceInfo)
 	if err != nil {
 		return nil, err
 	}
-	newItem, err := dynamodbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
-		Item:      item,
+	newItem, err := d.dbClient.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName:           aws.String(d.tableName),
+		Item:                item,
+		ConditionExpression: aws.String("attribute_not_exists(deviceid)"),
 	})
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "ConditionalCheckFailedException") {
+			log.Println("failed pre-condition check")
+			return nil, errors.New("item with provided deviceID already exists")
+		} else {
+			return nil, err
+		}
 	}
 	err = attributevalue.UnmarshalMap(newItem.Attributes, &deviceInfo)
 	if err != nil {
 		return nil, err
 	}
-	return &deviceInfo, nil
+	return deviceInfo, nil
 }
 
-func (*deviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
+func (d *DeviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 
 	update := expression.Set(expression.Name("modifiedAt"), expression.Value(time.Now().UnixMilli()))
 	if deviceInfo.DeviceName != "" {
@@ -71,8 +83,8 @@ func (*deviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo mo
 		log.Printf("Couldn't build expression for update. Here's why: %v\n", err)
 		return nil, err
 	}
-	result, err := dynamodbClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(os.Getenv("DEVICE_INFO_TABLE")),
+	result, err := d.dbClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(d.tableName),
 		Key:                       deviceInfo.GetKey(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -89,13 +101,13 @@ func (*deviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo mo
 	if err != nil {
 		return nil, err
 	}
-	return &deviceInfo, nil
+	return deviceInfo, nil
 }
 
-func (*deviceInfoRepository) GetDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
+func (d *DeviceInfoRepository) GetDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 
-	result, err := dynamodbClient.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
+	result, err := d.dbClient.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(d.tableName),
 		Key:       deviceInfo.GetKey(),
 	})
 	if err != nil {
@@ -112,25 +124,20 @@ func (*deviceInfoRepository) GetDeviceInfo(ctx context.Context, deviceInfo *mode
 	return deviceInfo, nil
 }
 
-func (*deviceInfoRepository) DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo model.DeviceInfo) error {
+func (d *DeviceInfoRepository) DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 
-	_, err := dynamodbClient.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(os.Getenv("DEVICE_INFO_TABLE")),
+	resp, err := d.dbClient.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(d.tableName),
 		Key:       deviceInfo.GetKey(),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return nil
-
-}
-
-func init() {
-	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	err = attributevalue.UnmarshalMap(resp.Attributes, &deviceInfo)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	dynamodbClient = *dynamodb.NewFromConfig(sdkConfig)
+	return deviceInfo, nil
+
 }

@@ -13,5 +13,5 @@ type IDeviceInfoService interface {
 
 	UpdateDeviceInfo(ctx context.Context, deviceId string, deviceInfoReq model.DeviceInfo) (*model.DeviceInfo, error)
 
-	DeleteDeviceInfo(ctx context.Context, deviceId string) error
+	DeleteDeviceInfo(ctx context.Context, deviceId string) (*model.DeviceInfo, error)
 }

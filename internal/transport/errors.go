@@ -1,10 +1,21 @@
 package transport
 
-import "github.com/aws/aws-lambda-go/events"
+import (
+	"net/http"
 
-func SendValidationError(errorCode int16, message string) (events.APIGatewayProxyResponse, error) {
+	"github.com/aws/aws-lambda-go/events"
+)
+
+func SendBadRequestError(message string) (events.APIGatewayProxyResponse, error) {
 	return events.APIGatewayProxyResponse{
-		StatusCode: int(errorCode),
+		StatusCode: http.StatusBadRequest,
+		Body:       message,
+	}, nil
+}
+
+func SendNotFoundError(message string) (events.APIGatewayProxyResponse, error) {
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusNotFound,
 		Body:       message,
 	}, nil
 }

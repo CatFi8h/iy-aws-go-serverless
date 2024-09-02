@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"testing"
@@ -38,6 +37,8 @@ var testDeviceInfo = []model.DeviceInfo{
 		UpdatedAt:  time.Now().Unix(),
 	},
 }
+
+var tableName string = "device_info_table"
 
 // Create the test container and wait for it to be ready
 func setupContainer(t *testing.T) (string, func(t *testing.T)) {
@@ -77,24 +78,40 @@ func TestSaveDeviceInfo(t *testing.T) {
 	e, tearDown := setupContainer(t)
 	defer tearDown(t)
 
-	dynamodbClient = *connect(e, t)
+	repo := createRepositoryWithConnection(e, t)
 
-	resp, err := NewDeviceInfoRepository().CreateDeviceInfo(context.TODO(), testDeviceInfo[0])
+	resp, err := repo.CreateDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err, "Expected to be able to save item, but received error")
 	assert.NotNil(t, resp)
 	assert.Equal(t, testDeviceInfo[0].DeviceId, resp.DeviceId)
+}
+
+func TestSaveSameDeviceInfo(t *testing.T) {
+	e, tearDown := setupContainer(t)
+	defer tearDown(t)
+
+	repo := createRepositoryWithConnection(e, t)
+
+	resp, err := repo.CreateDeviceInfo(context.TODO(), &testDeviceInfo[0])
+	assert.NoError(t, err, "Expected to be able to save item, but received error")
+	assert.NotNil(t, resp)
+	assert.Equal(t, testDeviceInfo[0].DeviceId, resp.DeviceId)
+	_, err = repo.CreateDeviceInfo(context.TODO(), &testDeviceInfo[0])
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "item with provided deviceID already exists")
 }
 
 func TestGetDeviceInfo(t *testing.T) {
 	e, tearDown := setupContainer(t)
 	defer tearDown(t)
 
-	dynamodbClient = *connect(e, t)
+	repo := *createRepositoryWithConnection(e, t)
 
-	_, err := NewDeviceInfoRepository().CreateDeviceInfo(context.TODO(), testDeviceInfo[0])
+	result, err := repo.CreateDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err, "Expected to be able to save item, but received error")
+	validateDeviceIdWithDataById(result, 0, t)
 
-	result, err := NewDeviceInfoRepository().GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
+	result, err = repo.GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err, "Expected to be able to save item, but received error")
 	validateDeviceIdWithDataById(result, 0, t)
 	validateResultWithDataById(result, 0, t)
@@ -104,9 +121,9 @@ func TestGetDeviceInfoNoItemFound(t *testing.T) {
 	e, tearDown := setupContainer(t)
 	defer tearDown(t)
 
-	dynamodbClient = *connect(e, t)
+	repo := createRepositoryWithConnection(e, t)
 
-	resp, err := NewDeviceInfoRepository().GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
+	resp, err := repo.GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err)
 	assert.Nil(t, resp)
 }
@@ -127,21 +144,17 @@ func TestUpdateDeviceInfo(t *testing.T) {
 	e, tearDown := setupContainer(t)
 	defer tearDown(t)
 
-	dynamodbClient = *connect(e, t)
+	repo := createRepositoryWithConnection(e, t)
 
-	_, err := NewDeviceInfoRepository().CreateDeviceInfo(context.TODO(), testDeviceInfo[0])
-	assert.NoError(t, err, "Expected to be able to save item, but received error")
-
-	result, err := NewDeviceInfoRepository().GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
+	result, err := repo.CreateDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err, "Expected to be able to save item, but received error")
 
 	validateDeviceIdWithDataById(result, 0, t)
 	validateResultWithDataById(result, 0, t)
 	deviceInfo := testDeviceInfo[1]
 	deviceInfo.DeviceId = testDeviceInfo[0].DeviceId
-	NewDeviceInfoRepository().UpdateDeviceInfo(context.TODO(), deviceInfo)
+	result, err = repo.UpdateDeviceInfo(context.TODO(), &deviceInfo)
 
-	result, err = NewDeviceInfoRepository().GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err, "Expected to be able to save item, but received error")
 	validateDeviceIdWithDataById(result, 0, t)
 	validateResultWithDataById(result, 1, t)
@@ -151,25 +164,27 @@ func TestDeleteDeviceInfo(t *testing.T) {
 	e, tearDown := setupContainer(t)
 	defer tearDown(t)
 
-	dynamodbClient = *connect(e, t)
-	_, err := NewDeviceInfoRepository().CreateDeviceInfo(context.TODO(), testDeviceInfo[0])
-	if err != nil {
-		t.Errorf("Expected to be able to save item, but received error: %s", err)
-	}
+	repo := createRepositoryWithConnection(e, t)
 
-	result, err := NewDeviceInfoRepository().GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
+	result, err := repo.CreateDeviceInfo(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err)
 	validateDeviceIdWithDataById(result, 0, t)
 	validateResultWithDataById(result, 0, t)
-	err = NewDeviceInfoRepository().DeleteDeviceInfoByDeviceId(context.TODO(), testDeviceInfo[0])
+	result, err = repo.DeleteDeviceInfoByDeviceId(context.TODO(), &testDeviceInfo[0])
 	assert.NoError(t, err)
-	result, err = NewDeviceInfoRepository().GetDeviceInfo(context.TODO(), &testDeviceInfo[0])
-	assert.NoError(t, err)
-	assert.Nil(t, result)
+	validateDeviceIdWithDataById(result, 0, t)
+
+}
+
+func createRepositoryWithConnection(e string, t *testing.T) *DeviceInfoRepository {
+	dynamodbClient := *connect(e, t)
+	return &DeviceInfoRepository{
+		dbClient:  &dynamodbClient,
+		tableName: tableName,
+	}
 }
 
 func connect(e string, t *testing.T) *dynamodb.Client {
-	t.Setenv("DEVICE_INFO_TABLE", "device-info-table")
 	client := createClient("http://" + e)
 	if err := createTable(client); err != nil {
 		t.Errorf("Expected to be able to create Dy	namoDB table, but received: %s", err)
@@ -180,10 +195,6 @@ func connect(e string, t *testing.T) *dynamodb.Client {
 
 func createClient(endpoint string) *dynamodb.Client {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
-	// , func(o *config.LoadOptions) error {
-	// 	o.Region = "eu-east-1"
-	// 	return nil
-	// })
 	if err != nil {
 		panic(err)
 	}
@@ -198,7 +209,7 @@ func createClient(endpoint string) *dynamodb.Client {
 
 func createTable(c *dynamodb.Client) error {
 	_, err := c.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
-		TableName:   aws.String(os.Getenv("DEVICE_INFO_TABLE")), //tableName
+		TableName:   &tableName,
 		BillingMode: types.BillingModePayPerRequest,
 		AttributeDefinitions: []types.AttributeDefinition{
 			{

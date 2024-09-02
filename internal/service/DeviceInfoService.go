@@ -10,30 +10,24 @@ import (
 	"github.com/CatFi8h/iy-aws-go-serverless/internal/repository"
 )
 
-type deviceInfoService struct{}
-
-var (
+type deviceInfoService struct {
 	repo repository.IDeviceInfoRepository
-)
+}
 
 func NewDeviceInfoService(repository repository.IDeviceInfoRepository) IDeviceInfoService {
-	repo = repository
-	return &deviceInfoService{}
+	return &deviceInfoService{
+		repo: repository,
+	}
 }
 
 func (service *deviceInfoService) CreateDeviceInfo(ctx context.Context, deviceInfoReq model.DeviceInfo) (*model.DeviceInfo, error) {
 
 	currentTime := time.Now().UnixMilli()
 
-	if deviceInfoReq.DeviceId == "" {
-		log.Printf("Can not read JSON")
-		return nil, errors.New("can not read JSON")
-	}
-
 	deviceInfoReq.CreateAt = currentTime
 	deviceInfoReq.UpdatedAt = currentTime
 
-	resp, err := repo.CreateDeviceInfo(ctx, deviceInfoReq)
+	resp, err := service.repo.CreateDeviceInfo(ctx, &deviceInfoReq)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +42,7 @@ func (service *deviceInfoService) GetDeviceInfo(ctx context.Context, deviceId st
 	}
 	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 
-	deviceInfoResp, err := repo.GetDeviceInfo(ctx, &deviceInfo)
+	deviceInfoResp, err := service.repo.GetDeviceInfo(ctx, &deviceInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +57,7 @@ func (service *deviceInfoService) UpdateDeviceInfo(ctx context.Context, deviceId
 	deviceInfoReq.DeviceId = deviceId
 	deviceInfoReq.UpdatedAt = time.Now().UnixMilli()
 
-	resp, err := repo.UpdateDeviceInfo(ctx, deviceInfoReq)
+	resp, err := service.repo.UpdateDeviceInfo(ctx, &deviceInfoReq)
 
 	if err != nil {
 		log.Printf("Could not Unmarshal JSON : [%s]", err.Error())
@@ -73,15 +67,15 @@ func (service *deviceInfoService) UpdateDeviceInfo(ctx context.Context, deviceId
 	return resp, nil
 }
 
-func (service *deviceInfoService) DeleteDeviceInfo(ctx context.Context, deviceId string) error {
+func (service *deviceInfoService) DeleteDeviceInfo(ctx context.Context, deviceId string) (*model.DeviceInfo, error) {
 	deviceInfo := model.DeviceInfo{DeviceId: deviceId}
 
-	err := repo.DeleteDeviceInfoByDeviceId(ctx, deviceInfo)
+	resp, err := service.repo.DeleteDeviceInfoByDeviceId(ctx, &deviceInfo)
 
 	if err != nil {
 		log.Printf("Could not delete Device Info : [%s]", err.Error())
-		return err
+		return nil, err
 	}
 
-	return nil
+	return resp, nil
 }

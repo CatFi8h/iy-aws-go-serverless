@@ -13,7 +13,7 @@ type MockDeviceInfoRepository struct {
 	mock.Mock
 }
 
-func (mock *MockDeviceInfoRepository) CreateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
+func (mock *MockDeviceInfoRepository) CreateDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 	args := mock.Called()
 	result := args.Get(0)
 	return result.(*model.DeviceInfo), args.Error(1)
@@ -25,22 +25,29 @@ func (mock *MockDeviceInfoRepository) GetDeviceInfo(ctx context.Context, deviceI
 	return result.(*model.DeviceInfo), args.Error(1)
 }
 
-func (mock *MockDeviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo model.DeviceInfo) (*model.DeviceInfo, error) {
+func (mock *MockDeviceInfoRepository) UpdateDeviceInfo(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 	args := mock.Called()
 	result := args.Get(0)
 	return result.(*model.DeviceInfo), args.Error(1)
 }
 
-func (mock *MockDeviceInfoRepository) DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo model.DeviceInfo) error {
+func (mock *MockDeviceInfoRepository) DeleteDeviceInfoByDeviceId(ctx context.Context, deviceInfo *model.DeviceInfo) (*model.DeviceInfo, error) {
 	args := mock.Called()
-	return args.Error(0)
+	result := args.Get(0)
+	return result.(*model.DeviceInfo), args.Error(1)
 }
 
-var deviceInfo = model.DeviceInfo{DeviceId: "1", DeviceName: "My Device 1", Mac: "aaa-aaa-aaa", DeviceType: "Phone", HomeId: "1", CreateAt: 1, UpdatedAt: 1}
+var deviceInfo = model.DeviceInfo{
+	DeviceId:   "1",
+	DeviceName: "My Device 1",
+	Mac:        "aaa-aaa-aaa",
+	DeviceType: "Phone",
+	HomeId:     "1",
+	CreateAt:   1,
+	UpdatedAt:  1,
+}
 
 func TestGetDeviceInfo_valid(t *testing.T) {
-	// resultJsonStr := "{\"deviceid\":\"1\",\"deviceName\":\"My Device 1\",\"mac\":\"aaa-aaa-aaa\",\"deviceType\":\"Phone\",\"homeId\":\"1\",\"createdAt\":1,\"updateAt\":1}"
-
 	mockRepo := new(MockDeviceInfoRepository)
 	mockRepo.On("GetDeviceInfo").Return(&deviceInfo, nil).Once()
 	service := NewDeviceInfoService(mockRepo)
@@ -114,7 +121,10 @@ func TestUpdateDeviceInfo_valid(t *testing.T) {
 func TestDeleteDeviceInfo_valid(t *testing.T) {
 	mockRepo := new(MockDeviceInfoRepository)
 	service := NewDeviceInfoService(mockRepo)
-	mockRepo.On("DeleteDeviceInfoByDeviceId").Return(nil)
-	err := service.DeleteDeviceInfo(context.TODO(), "1")
+	deviceId := "1"
+	mockRepo.On("DeleteDeviceInfoByDeviceId").Return(&model.DeviceInfo{DeviceId: deviceId}, nil)
+	resp, err := service.DeleteDeviceInfo(context.TODO(), deviceId)
 	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, deviceId, resp.DeviceId)
 }
